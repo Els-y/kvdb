@@ -1,0 +1,52 @@
+syntax = "proto3";
+package rpc;
+
+enum EntryType {
+	EntryNormal       = 0;
+}
+
+message Entry {
+	EntryType  Type  = 1;
+	uint64     Term  = 2; // must be 64-bit aligned for atomic operations
+	uint64     Index = 3; // must be 64-bit aligned for atomic operations
+	bytes      Data  = 4;
+}
+
+enum MessageType {
+	MsgHup             = 0;    // 选主定时器超时，通知开始选主，local msg
+	MsgBeat            = 1;    // 心跳包计时器到时，通知 leader 去广播心跳包，local msg
+	MsgProp            = 2;    // 修改提案，local msg
+	MsgApp             = 3;    // AppendEntries
+	MsgAppResp         = 4;    // AppendEntries Response
+	MsgVote            = 5;    // RequestVote
+	MsgVoteResp        = 6;    // RequestVote Response
+	MsgHeartbeat       = 7;    // 心跳包
+	MsgHeartbeatResp   = 8;    // 心跳包返回值
+}
+
+message Message {
+	MessageType    Type        = 1;
+	uint64         To          = 2;
+	uint64         From        = 3;  // MsgApp: leaderId;      MsgVote: candidateId
+	uint64         Term        = 4;  // MsgApp: leader's term; MsgVote: candidate's term
+	uint64         LogTerm     = 5;  // MsgApp: prevLogTerm?   MsgVote: lastLogTerm
+	uint64         Index       = 6;  // MsgApp: prevLogIndex?  MsgVote: lastLogIndex
+	repeated Entry Entries     = 7;
+	uint64         Commit      = 8;  // MsgApp: leaderCommit ?
+	bool           Reject      = 10;  // MsgVote: voteGranted
+	uint64         RejectHint  = 11;
+}
+
+message Response {
+    bytes Err = 1;
+}
+
+message HardState {
+	uint64 Term   = 1;
+	uint64 Vote   = 2;
+	uint64 Commit = 3;
+}
+
+service Raft {
+	rpc Send (Message) returns (Response) {}
+}

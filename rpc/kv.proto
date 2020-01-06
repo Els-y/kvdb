@@ -1,0 +1,34 @@
+syntax = "proto3";
+package rpc;
+
+service KV {
+	rpc Get(GetRequest) returns (GetResponse) {}
+	rpc Put(PutRequest) returns (PutResponse) {}
+	rpc Del(DelRequest) returns (DelResponse) {}
+}
+
+message GetRequest {
+    bytes Key = 1;
+}
+
+message GetResponse {
+    bytes Val = 1;
+    bool  Ok  = 2;
+}
+
+message PutRequest {
+    bytes Key = 1;
+    bytes Val = 2;
+}
+
+message PutResponse {
+    bool  Ok  = 2;
+}
+
+message DelRequest {
+    bytes Key = 1;
+}
+
+message DelResponse {
+    bool  Ok  = 2;
+}
