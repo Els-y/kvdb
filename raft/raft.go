@@ -143,7 +143,7 @@ func (r *raft) becomeLeader() {
 	r.tick = r.tickHeartBeat
 	r.leaderID = r.localID
 	r.state = StateLeader
-	//r.prs.resetForLeader()
+	r.prs.resetForLeader(r.raftLog.lastIndex())
 	r.logger.Info("became leader",
 		zap.Uint64("localID", r.localID),
 		zap.Uint64("term", r.term))
@@ -328,6 +328,7 @@ func stepCandidate(r *raft, msg pb.Message) error {
 func stepLeader(r *raft, msg pb.Message) error {
 	switch msg.Type {
 	case pb.MessageType_MsgBeat:
+		r.logger.Debug("stepLeader start bcastHeartbeat")
 		r.bcastHeartbeat()
 		return nil
 	case pb.MessageType_MsgProp:
@@ -353,7 +354,7 @@ func stepLeader(r *raft, msg pb.Message) error {
 			r.logger.Debug("received MsgAppResp(MsgApp was rejected, lastindex: %d) from %x for index %d",
 				zap.Uint64("localID", r.localID),
 				zap.Uint64("msgFrom", msg.From),
-				zap.Uint64("msgFrom", msg.Index),
+				zap.Uint64("msgIndex", msg.Index),
 				zap.Uint64("msgRejectHint", msg.RejectHint))
 			if r.prs.maybeDecrTo(msg.From, msg.Index, msg.RejectHint) {
 				r.logger.Debug("decreased progress",

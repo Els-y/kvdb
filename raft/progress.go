@@ -105,7 +105,7 @@ func (prs *Progress) maybeUpdate(id, n uint64) bool {
 
 func (prs *Progress) maybeDecrTo(id, rejected, last uint64) bool {
 	m := prs.cluster[id]
-	// TODO: why?
+	// TODO: why? 应该是筛掉与 prs 不匹配的消息
 	if m.NextIndex-1 != rejected {
 		return false
 	}

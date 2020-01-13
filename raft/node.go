@@ -175,7 +175,6 @@ func (n *Node) run() {
 func (n *Node) HasReady() bool {
 	r := n.raft
 	if hardSt := r.hardState(); !IsEmptyHardState(hardSt) && !IsHardStateEqual(hardSt, n.prevHardSt) {
-		//n.logger.Debug("HasReady true of hardst")
 		return true
 	}
 	if len(r.msgs) > 0 || len(r.raftLog.unstableEntries()) > 0 || r.raftLog.hasNextEntries() {
