@@ -3,6 +3,9 @@ package wal
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/Els-y/kvdb/pkg/fileutil"
 	"github.com/Els-y/kvdb/raft"
 	pb "github.com/Els-y/kvdb/rpc"
 	"go.uber.org/zap"
@@ -13,10 +16,18 @@ import (
 	"strings"
 )
 
+const (
+	LogFile   = "log.json"
+	StateFile = "state.json"
+)
+
+var ErrPartialAbsence = errors.New(fmt.Sprintf("lack of %s or %s", LogFile, StateFile))
+
 type WAL struct {
 	dir       string
 	logFile   string
 	stateFile string
+	exists    bool
 	logger    *zap.Logger
 }
 
@@ -25,42 +36,45 @@ type WAL struct {
 //       读取恢复 wal
 //       转为 pb 减小体积
 
-func Exist(dir string) bool {
-	// TODO: 判读文件是否存在，err 其他异常处理？
-	_, err := os.Stat(dir)
-	if err == nil {
-		return true
+func Exist(dir string) (bool, error) {
+	if !fileutil.Exist(dir) {
+		return false, nil
 	}
-	if os.IsNotExist(err) {
-		return false
+
+	logExist := fileutil.Exist(path.Join(dir, LogFile))
+	stateExist := fileutil.Exist(path.Join(dir, StateFile))
+
+	if logExist && stateExist {
+		return true, nil
+	} else if !logExist && !stateExist {
+		return false, nil
 	}
-	return false
+	return false, ErrPartialAbsence
 }
 
-func Create(dir string, logger *zap.Logger) *WAL {
-	err := os.Mkdir(dir, os.ModePerm)
+func NewWAL(dir string, logger *zap.Logger) *WAL {
+	walExist, err := Exist(dir)
 	if err != nil {
-		logger.Panic("create wal dir fail", zap.Error(err))
+		logger.Panic("incomplete log exists under the dir", zap.String("dir", dir))
+	}
+	if !walExist {
+		if err := fileutil.CreateDirAll(dir); err != nil {
+			logger.Panic("create wal dir fail", zap.Error(err))
+		}
 	}
 
 	w := &WAL{
 		dir:       dir,
-		logFile:   path.Join(dir, "log.json"),
-		stateFile: path.Join(dir, "state.json"),
+		logFile:   path.Join(dir, LogFile),
+		stateFile: path.Join(dir, StateFile),
+		exists:    walExist,
 		logger:    logger,
 	}
 	return w
 }
 
-func Restore(dir string, logger *zap.Logger) *WAL {
-	// TODO: 函数命名需要修改
-	w := &WAL{
-		dir:       dir,
-		logFile:   path.Join(dir, "log.json"),
-		stateFile: path.Join(dir, "state.json"),
-		logger:    logger,
-	}
-	return w
+func (w *WAL) Exists() bool {
+	return w.exists
 }
 
 func (w *WAL) Save(st pb.HardState, entries []*pb.Entry) {

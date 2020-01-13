@@ -10,13 +10,16 @@ import (
 )
 
 func TestWAL_Save(t *testing.T) {
+	dir := "test"
 	entries1 := []*pb.Entry{{}, {Term: 1, Index: 1}}
 	st1 := pb.HardState{Term: 1, Vote: 1, Commit: 1}
 
-	w1 := Create("test", zap.NewExample())
+	w1 := NewWAL(dir, zap.NewExample())
 	w1.Save(st1, entries1)
 
-	w2 := Restore("test", zap.NewExample())
+	w2 := NewWAL(dir, zap.NewExample())
+	assert.True(t, w2.Exists())
+
 	st2, entries2, err := w2.ReadAll()
 	assert.Nil(t, err)
 	assert.True(t, raft.IsHardStateEqual(st1, st2))
@@ -25,7 +28,7 @@ func TestWAL_Save(t *testing.T) {
 			"i= %d, e1.index=%d, e1.term=%d, e2.index=%d, e2.term=%d", i, v.Index, v.Term, entries2[i].Index, entries2[i].Term)
 	}
 
-	err = os.RemoveAll("test")
+	err = os.RemoveAll(dir)
 	assert.Nil(t, err)
 }
 

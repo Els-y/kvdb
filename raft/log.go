@@ -29,11 +29,10 @@ func NewLogStore(logger *zap.Logger) *LogStore {
 	return l
 }
 
-func (l *LogStore) Restore(state pb.HardState, entries []*pb.Entry) {
+func (l *LogStore) Restore(entries []*pb.Entry) {
 	if len(entries) == 0 {
 		l.logger.Panic("restore raftLog with empty entries")
 	}
-	l.committed = state.Commit
 	l.unstable = entries[len(entries)-1].Index + 1
 	l.entries = entries
 }

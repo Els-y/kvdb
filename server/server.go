@@ -29,7 +29,7 @@ type Server struct {
 
 func NewServer(cfg *Config) *Server {
 	s := &Server{
-		storage:      kv.NewKVStore(),
+		storage:      kv.NewKVStore(cfg.Logger),
 		raftLog:      raft.NewLogStore(cfg.Logger),
 		intervalTick: cfg.IntervalTick,
 		logger:       cfg.Logger,
@@ -101,7 +101,7 @@ func (s *Server) serveChannels() {
 		case rd := <-s.raftNode.Ready():
 			// wal save
 			s.wal.Save(rd.HardState, rd.Entries)
-			// s.storage.Update()  更新 kv
+			s.storage.Update(rd.CommittedEntries)
 			s.transport.Send(rd.Messages)
 			s.raftNode.Advance()
 		case <-s.stopc:
@@ -112,20 +112,16 @@ func (s *Server) serveChannels() {
 }
 
 func (s *Server) replayWAL(walDir string) *wal.WAL {
-	if !wal.Exist(walDir) {
-		// TODO: create wal
-		w := wal.Create(walDir, s.logger)
+	w := wal.NewWAL(walDir, s.logger)
+	if !w.Exists() {
 		return w
 	}
 
-	w := wal.Restore(walDir, s.logger)
 	state, entries, err := w.ReadAll()
 	if err != nil {
 		s.logger.Panic("replay wal fail", zap.Error(err))
 	}
-	s.raftNode.SetHardState(state)
-	s.raftLog.Restore(state, entries)
-	// TODO: update kv
-	//s.storage.Restore(entries)
+	s.raftLog.Restore(entries)
+	s.raftNode.LoadState(state)
 	return w
 }

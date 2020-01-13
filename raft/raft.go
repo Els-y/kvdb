@@ -328,7 +328,6 @@ func stepCandidate(r *raft, msg pb.Message) error {
 func stepLeader(r *raft, msg pb.Message) error {
 	switch msg.Type {
 	case pb.MessageType_MsgBeat:
-		r.logger.Debug("stepLeader start bcastHeartbeat")
 		r.bcastHeartbeat()
 		return nil
 	case pb.MessageType_MsgProp:
@@ -336,7 +335,6 @@ func stepLeader(r *raft, msg pb.Message) error {
 			r.logger.Panic("stepped empty MsgProp", zap.Uint64("localID", r.localID))
 		}
 		r.appendEntry(msg.Entries)
-		r.logger.Debug("stepLeader start bcastAppend")
 		r.bcastAppend()
 		return nil
 	}

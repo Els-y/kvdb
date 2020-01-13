@@ -3,6 +3,8 @@ package kv
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
+	pb "github.com/Els-y/kvdb/rpc"
 	"go.uber.org/zap"
 	"sync"
 )
@@ -20,9 +22,10 @@ type KVStore struct {
 	kvStore map[string]string
 }
 
-func NewKVStore() *KVStore {
+func NewKVStore(logger *zap.Logger) *KVStore {
 	return &KVStore{
 		kvStore: make(map[string]string),
+		logger:  logger,
 	}
 }
 
@@ -35,20 +38,30 @@ func (s *KVStore) Get(key string) (string, bool) {
 
 func (s *KVStore) Put(key, val string) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.kvStore[key] = val
-	s.mu.Unlock()
 }
 
 func (s *KVStore) Del(key string) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	delete(s.kvStore, key)
-	s.mu.Unlock()
 }
 
 type KVLog struct {
 	Action KVActionType
 	Key    string
 	Val    string
+}
+
+func (k *KVLog) String() string {
+	var actionStr string
+	if k.Action == KVActionPut {
+		actionStr = "put"
+	} else {
+		actionStr = "del"
+	}
+	return fmt.Sprintf("action: %s, key: %s, val: %s", actionStr, k.Key, k.Val)
 }
 
 func (s *KVStore) ProposePut(key, val string) string {
@@ -74,4 +87,17 @@ func (s *KVStore) DecodeLog(log string) KVLog {
 		s.logger.Fatal("KVStore DecodeLog could not decode message", zap.Error(err))
 	}
 	return kvlog
+}
+
+func (s *KVStore) Update(entries []*pb.Entry) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, ent := range entries {
+		kvlog := s.DecodeLog(string(ent.Data))
+		if kvlog.Action == KVActionPut {
+			s.kvStore[kvlog.Key] = kvlog.Val
+		} else {
+			delete(s.kvStore, kvlog.Key)
+		}
+	}
 }

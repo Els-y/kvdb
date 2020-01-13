@@ -94,10 +94,18 @@ func (n *Node) Stop() {
 	<-n.done
 }
 
-func (n *Node) SetHardState(state pb.HardState) {
-	n.prevHardSt = state
+func (n *Node) LoadState(state pb.HardState) {
+	if state.Commit < n.raft.raftLog.committed || state.Commit > n.raft.raftLog.lastIndex() {
+		n.logger.Panic("state.commit is out of range",
+			zap.Uint64("localID", n.raft.localID),
+			zap.Uint64("state.commit", state.Commit),
+			zap.Uint64("raftLog.committed", n.raft.raftLog.committed),
+			zap.Uint64("raftLog.lastIndex", n.raft.raftLog.lastIndex()))
+	}
+	n.raft.raftLog.committed = state.Commit
 	n.raft.term = state.Term
 	n.raft.vote = state.Vote
+	n.prevHardSt = state
 }
 
 func (n *Node) run() {
