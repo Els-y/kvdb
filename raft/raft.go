@@ -296,7 +296,7 @@ func stepFollower(r *raft, msg pb.Message) error {
 func stepCandidate(r *raft, msg pb.Message) error {
 	switch msg.Type {
 	case pb.MessageType_MsgProp:
-		r.logger.Info("no leader at term %d; dropping proposal",
+		r.logger.Info("no leader at current term; dropping proposal",
 			zap.Uint64("localID", r.localID),
 			zap.Uint64("term", r.term))
 		return ErrProposalDropped
@@ -349,7 +349,7 @@ func stepLeader(r *raft, msg pb.Message) error {
 	switch msg.Type {
 	case pb.MessageType_MsgAppResp:
 		if msg.Reject {
-			r.logger.Debug("received MsgAppResp(MsgApp was rejected, lastindex: %d) from %x for index %d",
+			r.logger.Debug("received MsgAppResp(MsgApp was rejected)",
 				zap.Uint64("localID", r.localID),
 				zap.Uint64("msgFrom", msg.From),
 				zap.Uint64("msgIndex", msg.Index),

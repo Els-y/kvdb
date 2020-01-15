@@ -126,10 +126,10 @@ func (l *LogStore) findConflict(entries []*pb.Entry) uint64 {
 	for _, ne := range entries {
 		if !l.matchTerm(ne.Index, ne.Term) {
 			if ne.Index <= l.lastIndex() {
-				l.logger.Info("found conflict at index %d [existing term: %d, conflicting term: %d]",
+				l.logger.Info("log found conflict",
 					zap.Uint64("conflictIndex", ne.Index),
-					zap.Uint64("existTerm", l.termOrPanic(l.term(ne.Index))),
-					zap.Uint64("conflictTerm", ne.Term))
+					zap.Uint64("conflictTerm", ne.Term),
+					zap.Uint64("existTerm", l.termOrPanic(l.term(ne.Index))))
 			}
 			return ne.Index
 		}

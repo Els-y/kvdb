@@ -83,11 +83,11 @@ func (w *WAL) Save(st pb.HardState, entries []*pb.Entry) {
 	}
 
 	if err := w.saveEntries(entries); err != nil {
-		w.logger.Panic("save entries fail", zap.Error(err))
+		w.logger.Panic("wal save entries fail", zap.Error(err))
 	}
 
 	if err := w.saveState(st); err != nil {
-		w.logger.Panic("save state fail", zap.Error(err))
+		w.logger.Panic("wal save state fail", zap.Error(err))
 	}
 }
 
@@ -103,7 +103,6 @@ func (w *WAL) saveState(st pb.HardState) error {
 
 	err = ioutil.WriteFile(w.stateFile, b, 0666)
 	if err != nil {
-		w.logger.Error("save state error", zap.Error(err))
 		return err
 	}
 
@@ -156,10 +155,6 @@ func (w *WAL) readState() (pb.HardState, error) {
 		return st, nil
 	}
 	err = json.Unmarshal(b, &st)
-	w.logger.Info("readState",
-		zap.Uint64("term", st.Term),
-		zap.Uint64("vote", st.Vote),
-		zap.Uint64("commit", st.Commit))
 	return st, nil
 }
 
@@ -178,9 +173,6 @@ func (w *WAL) readEntries() ([]*pb.Entry, error) {
 		if len(line) != 0 {
 			ent := &pb.Entry{}
 			err = json.Unmarshal([]byte(line), &ent)
-			w.logger.Info("readEntries",
-				zap.Uint64("term", ent.Term),
-				zap.Uint64("index", ent.Index))
 			entries = append(entries, ent)
 		}
 		if err == io.EOF {
