@@ -1,2 +1,5 @@
 .DS_Store
 .idea
+kvdb
+kvdbctl/kvdbctl
+benchmark/benchmark
