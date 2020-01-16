@@ -36,7 +36,7 @@ func NewConfig(id uint64, dataDir, cluster string, port int) *Config {
 		ClientServerPort: port,
 		ElectionTick:     10,
 		HeartbeatTick:    1,
-		IntervalTick:     500 * time.Millisecond,
+		IntervalTick:     150 * time.Millisecond,
 		WalDir:           dataDir,
 		Logger:           zap.NewExample(),
 	}

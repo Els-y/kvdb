@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	pb "github.com/Els-y/kvdb/rpc"
 	"google.golang.org/grpc"
 	"log"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -30,14 +32,14 @@ type Bencher struct {
 	wg                    sync.WaitGroup
 }
 
-func (b *Bencher) Start() {
+func (b *Bencher) run() {
 	numReqPerClient := b.NumRequest / b.NumClient
 	log.Printf("numRequest: %d, numClient: %d, numReqPerClient: %d\n", b.NumRequest, b.NumClient, numReqPerClient)
 
-	b.wg.Add(b.NumClient)
 	startTime := time.Now()
+	b.wg.Add(b.NumClient)
 	for i := 0; i < b.NumClient; i++ {
-		go b.startClient(numReqPerClient)
+		go b.startClient(i, numReqPerClient)
 	}
 	b.wg.Wait()
 	endTime := time.Now()
@@ -45,10 +47,13 @@ func (b *Bencher) Start() {
 	log.Printf("duration: %v, qps: %f\n", duration, float64(b.NumRequest)/duration.Seconds())
 }
 
-func (b *Bencher) startClient(numRequest int) {
+func (b *Bencher) startClient(id, numRequest int) {
 	client := b.initClient()
-	for i := 0; i < numRequest; i++ {
-		err := b.execOperation(client)
+	keyStart := id * numRequest
+	keyEnd := keyStart + numRequest
+	for i := keyStart; i < keyEnd; i++ {
+		key := keyWithZeroPad(i, b.KeySize)
+		err := b.execOperation(key, client)
 		if err != nil {
 			log.Fatal("client exec operation fail", err)
 		}
@@ -57,7 +62,7 @@ func (b *Bencher) startClient(numRequest int) {
 }
 
 func (b *Bencher) initClient() pb.KVClient {
-	endpoint := b.pickEndpoint()
+	endpoint := b.randomPickEndpoint()
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, b.DefaultDialTimeout)
 	defer cancel()
@@ -70,26 +75,25 @@ func (b *Bencher) initClient() pb.KVClient {
 	return client
 }
 
-func (b *Bencher) pickEndpoint() string {
+func (b *Bencher) randomPickEndpoint() string {
 	if len(b.Endpoints) == 1 {
 		return b.Endpoints[0]
 	}
-	index := rand.Intn(len(b.Endpoints) - 1)
+	index := rand.Intn(len(b.Endpoints))
 	return b.Endpoints[index]
 }
 
-func (b *Bencher) execOperation(client pb.KVClient) error {
+func (b *Bencher) execOperation(key []byte, client pb.KVClient) error {
 	var err error
 	if b.Op == Write {
-		err = b.execWriteOperation(client)
+		err = b.execWriteOperation(key, client)
 	} else {
-		err = b.execReadOperation(client)
+		err = b.execReadOperation(key, client)
 	}
 	return err
 }
 
-func (b *Bencher) execWriteOperation(client pb.KVClient) error {
-	key := getRandomBytes(b.KeySize)
+func (b *Bencher) execWriteOperation(key []byte, client pb.KVClient) error {
 	value := getRandomBytes(b.ValueSize)
 
 	ctx := context.TODO()
@@ -97,12 +101,15 @@ func (b *Bencher) execWriteOperation(client pb.KVClient) error {
 	return err
 }
 
-func (b *Bencher) execReadOperation(client pb.KVClient) error {
-	key := getRandomBytes(b.KeySize)
-
+func (b *Bencher) execReadOperation(key []byte, client pb.KVClient) error {
 	ctx := context.TODO()
 	_, err := client.Get(ctx, &pb.GetRequest{Key: key})
 	return err
+}
+
+func keyWithZeroPad(val, length int) []byte {
+	key := fmt.Sprintf("%0"+strconv.Itoa(length)+"d", val)
+	return []byte(key)
 }
 
 func getRandomBytes(l int) []byte {
@@ -118,15 +125,14 @@ func getRandomBytes(l int) []byte {
 
 func main() {
 	bencher := &Bencher{
-		Op:                    Read,
+		Op:                    Write,
 		NumClient:             10,
 		NumRequest:            1000,
 		KeySize:               8,
 		ValueSize:             256,
 		DefaultDialTimeout:    2 * time.Second,
 		DefaultCommandTimeOut: 5 * time.Second,
-		Endpoints:             []string{"127.0.0.1:22380"},
-		wg:                    sync.WaitGroup{},
+		Endpoints:             []string{"127.0.0.1:12380", "127.0.0.1:22380", "127.0.0.1:32380"},
 	}
-	bencher.Start()
+	bencher.run()
 }
